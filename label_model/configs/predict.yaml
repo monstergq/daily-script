@@ -1,0 +1,30 @@
+Path:
+  root_path: './configs/svs/ST20Rf-EY-HG-OE-321-1-000017.svs'
+  out_path: './result/json'
+  model_path: './model_path/HG_model_lastet.pth'
+  gt_json_path: './configs/gt_json/ST20Rf-EY-HG-OE-321-1-000017_哈氏腺腺泡.json'
+
+Parameter:
+  level: 0
+  crop_size: 2048
+  downscale: False
+  overlap_size: 512
+  trans_channel: False
+
+Model:
+  target: 0
+  num_classes: 1
+  device: 'cuda'
+  labels: ["哈氏腺_腺泡"]
+  roi_label: ['大鼠哈氏腺标注区域', True]
+
+Post:
+  polygon_filter: 4
+  rect_thresh: 1200
+  line_thresh: 1000
+  use_dilate: False
+  use_sigmoid: True
+  use_watershed: False
+
+Other:
+  version: '哈氏腺腺泡_v5.0.1'
