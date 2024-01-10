@@ -64,7 +64,7 @@ def get_contours(pred, use_dilate, use_watershed):
     return img
 
 
-def get_Targets(image, model, device, totensor, thresh=0.6, use_dilate=False, use_sigmoid=False, use_watershed=False, target=None):
+def get_Targets(image, model, device, totensor, overlap_size, thresh=0.6, use_dilate=False, use_sigmoid=False, use_watershed=False, target=None):
 
     with torch.no_grad():
 
@@ -74,6 +74,9 @@ def get_Targets(image, model, device, totensor, thresh=0.6, use_dilate=False, us
             preds = torch.sigmoid(model(img)[0]).cpu().detach().numpy().squeeze()
         else:
             preds = model(img)[0].cpu().detach().numpy().squeeze()
+
+        input_size = preds.shape[-1] - (2*overlap_size)
+        preds = preds[overlap_size:input_size+overlap_size, overlap_size:input_size+overlap_size]
 
         if len(preds.shape) == 2:
 
@@ -180,9 +183,12 @@ def get_img_from_wsi(svs_path, level, roi_area):
         return img_roi.copy()
     
 
-def read_svs(wsi_path, level, trans_channel):
+def read_svs(wsi_path, level, trans_channel, overlap_size):
 
     image = tifffile.TiffFile(wsi_path).pages[level].asarray()
+
+    if overlap_size != 0:
+        image = cv.copyMakeBorder(image, overlap_size, overlap_size, overlap_size, overlap_size, cv.BORDER_REFLECT)
 
     if trans_channel:
         return image[:, :, ::-1]

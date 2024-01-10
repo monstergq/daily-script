@@ -4,26 +4,26 @@ import numpy as np
 from utils.utils import *
 from utils.NewJson import WriteJson
 from utils.eval_metric import eval_res
-from utils.CropMergeSvs import classCropMerge
 # from model.net.sam import Model as Model
 # from model.net.U2Net import U2net as Model
 from model.net.model import U2net as Model
 # from model.net.UNext import UNext as Model
 import torchvision.transforms as transforms
+from utils.CropMergeSvs import classCropMerge
 
 
 def predict_cotours(config_path):
 
     para = read_yaml(config_path)
     model = load_model(Model, para.Path.model_path, para.Model.num_classes, para.Model.device)
-    myCropMerge = classCropMerge(para.Parameter.crop_size, para.Parameter.crop_size, para.Parameter.crop_size-para.Parameter.overlap_size)
+    myCropMerge = classCropMerge(para.Parameter.crop_size, para.Parameter.crop_size, para.Parameter.crop_size)
 
     totensor = transforms.ToTensor()
 
     # for e in os.scandir(para.Path.root_path):
     _, name = os.path.split(para.Path.root_path)
     print(f'read svs:{para.Path.root_path}')
-    image = read_svs(para.Path.root_path, 0, para.Parameter.trans_channel)
+    image = read_svs(para.Path.root_path, 0, para.Parameter.trans_channel, para.Parameter.overlap_size)
 
     print(f'start crop')
 

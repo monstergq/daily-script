@@ -53,13 +53,6 @@ class classCropMerge:
                     j = self.width - self.crop_size_width
 
                 self.points.append([i, j])
-
-                # I = i-128 if i-128>=0 else 0
-                # J = j-128 if j-128>=0 else 0
-                # I_ = I+self.crop_size_height+256 if I+self.crop_size_height < self.height else self.height - self.crop_size_height
-                # J_ = J+self.crop_size_width+256 if J+self.crop_size_width < self.width else self.width - self.crop_size_width
-
-                # patch_imgs.append(image[I:I_, J:J_])
                 patch_imgs.append(image[i:i+self.crop_size_height, j:j+self.crop_size_width])
 
         return patch_imgs
