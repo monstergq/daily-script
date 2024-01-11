@@ -25,7 +25,7 @@ class classCropMerge:
         self.height = None
         self.points = None
 
-    def crop_Image(self, image):
+    def crop_Image(self, image, overlap_size):
 
         """
         Crop Image.
@@ -35,6 +35,7 @@ class classCropMerge:
 
         self.points = []
         self.image = image
+        self.overlap_size = overlap_size
 
         self.height, self.width = image.shape[:2]
 
@@ -44,16 +45,16 @@ class classCropMerge:
 
         for i in range(0, self.height, self.crop_stride):
 
-            if i+self.crop_size_height > self.height:
-                i = self.height - self.crop_size_height
+            if i+self.crop_size_height+(2*overlap_size) > self.height:
+                i = self.height - self.crop_size_height - (2*overlap_size)
 
             for j in range(0, self.width, self.crop_stride):
 
-                if j+self.crop_size_width > self.width:
-                    j = self.width - self.crop_size_width
+                if j+self.crop_size_width+(2*overlap_size) > self.width:
+                    j = self.width - self.crop_size_width - (2*overlap_size)
 
                 self.points.append([i, j])
-                patch_imgs.append(image[i:i+self.crop_size_height, j:j+self.crop_size_width])
+                patch_imgs.append(image[i:i+self.crop_size_height+(2*overlap_size), j:j+self.crop_size_width+(2*overlap_size)])
 
         return patch_imgs
 
@@ -65,12 +66,21 @@ class classCropMerge:
         :return: Total Mask.
         """
 
-        total_masks = [np.zeros(self.image.shape[:2], dtype=np.uint8)] * len(imagelist)
+        total_masks = [np.zeros((self.image.shape[0]-(2*self.overlap_size), self.image.shape[1]-(2*self.overlap_size)), dtype=np.uint8)] * len(imagelist)
 
         for i, coord in enumerate(self.points):
             
             for j, total_mask in enumerate(total_masks):
-                
-                total_mask[coord[0]:coord[0]+self.crop_size_height, coord[1]:coord[1]+self.crop_size_width] += imagelist[j][i]
+
+                try:
+                    total_mask[coord[0]:coord[0]+self.crop_size_height, coord[1]:coord[1]+self.crop_size_width] += imagelist[j][i]
+                except:
+                    print(f'coord[0] is: {coord[0]}')
+                    print(f'self.crop_size_height is: {self.crop_size_height}')
+                    print(f'coord[1] is: {coord[1]}')
+                    print(f'self.crop_size_width is: {self.crop_size_width}')
+                    print(f'self.crop_size_width is: {self.crop_size_width}')
+                    print(f'imagelist[j][i] shape is: {imagelist[j][i].shape}')
+
 
         return total_masks

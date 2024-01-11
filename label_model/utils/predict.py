@@ -5,8 +5,8 @@ from utils.utils import *
 from utils.NewJson import WriteJson
 from utils.eval_metric import eval_res
 # from model.net.sam import Model as Model
-# from model.net.U2Net import U2net as Model
-from model.net.model import U2net as Model
+from model.net.U2Net import U2net as Model
+# from model.net.model import U2net as Model
 # from model.net.UNext import UNext as Model
 import torchvision.transforms as transforms
 from utils.CropMergeSvs import classCropMerge
@@ -36,11 +36,11 @@ def predict_cotours(config_path):
         y -= 2500
         w += 20000
         h += 20000
-        patch_imgs = myCropMerge.crop_Image(image[y:y+h, x:x+w, :])
+        patch_imgs = myCropMerge.crop_Image(image[y:y+h, x:x+w, :], para.Parameter.overlap_size)
 
     else:
 
-        patch_imgs = myCropMerge.crop_Image(image)
+        patch_imgs = myCropMerge.crop_Image(image, para.Parameter.overlap_size)
 
     del image
     
@@ -52,12 +52,12 @@ def predict_cotours(config_path):
 
         if ((mean_img > 250) or (mean_img == 0)):
 
-            roi_mask = np.zeros((img.shape[:2]), dtype=np.uint8)
+            roi_mask = np.zeros((img.shape[0]-(2*para.Parameter.overlap_size), img.shape[1]-(2*para.Parameter.overlap_size)), dtype=np.uint8)
             [masks_pre_list[i].append(roi_mask) for i in range(len(para.Model.labels))]
 
         else:
 
-            roi_masks = get_Targets(img, model, para.Model.device, totensor, thresh=0.6, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
+            roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, thresh=0.6, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
             [masks_pre_list[i].append(roi_masks[i]) for i in range(len(para.Model.labels))]
             
     print(f'start merge')

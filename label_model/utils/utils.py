@@ -75,11 +75,10 @@ def get_Targets(image, model, device, totensor, overlap_size, thresh=0.6, use_di
         else:
             preds = model(img)[0].cpu().detach().numpy().squeeze()
 
-        input_size = preds.shape[-1] - (2*overlap_size)
-        preds = preds[overlap_size:input_size+overlap_size, overlap_size:input_size+overlap_size]
-
         if len(preds.shape) == 2:
 
+            input_size = preds.shape[0] - (2*overlap_size)
+            preds = preds[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]
             preds = np.array(np.where(preds>thresh, 255., 0.), dtype=np.uint8)
             Contours = [get_contours(preds, use_dilate, use_watershed)]
 
@@ -87,6 +86,8 @@ def get_Targets(image, model, device, totensor, overlap_size, thresh=0.6, use_di
 
             for i, pred in enumerate(preds):
 
+                input_size = pred.shape[0] - (2*overlap_size)
+                pred = pred[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]
                 pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
 
                 if not i:
@@ -99,6 +100,8 @@ def get_Targets(image, model, device, totensor, overlap_size, thresh=0.6, use_di
 
             for i, pred in enumerate(preds):
 
+                input_size = pred.shape[0] - (2*overlap_size)
+                pred = pred[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]
                 pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
 
                 if i:
@@ -108,6 +111,8 @@ def get_Targets(image, model, device, totensor, overlap_size, thresh=0.6, use_di
 
             for i, pred in enumerate(preds):
 
+                input_size = pred.shape[0] - (2*overlap_size)
+                pred = pred[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]
                 pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
 
                 if not i:
@@ -135,10 +140,39 @@ def get_labels_dict(labels):
     return labels_dict
 
 
+def get_pretrain(model, path):
+
+    """ 加载预训练模型，并打印出未加载部分"""
+    if path != '':
+
+        print('Load weights {}.'.format(path))
+
+        model_dict = model.state_dict()
+        pretrained_dict = torch.load(path, map_location='cpu')
+        load_key, no_load_key, temp_dict = [], [], {}
+
+        for k, v in pretrained_dict.items():
+
+            if k in model_dict.keys() and np.shape(model_dict[k]) == np.shape(v):
+                temp_dict[k] = v
+                load_key.append(k)
+            else:
+                no_load_key.append(k)
+
+        model_dict.update(temp_dict)
+        model.load_state_dict(model_dict)
+
+        print("\nSuccessful Load Key:", str(load_key)[:500], "\nSuccessful Load Key Num:", len(load_key))
+        print("\nFail To Load Key:", str(no_load_key)[:500], "\nFail To Load Key num:", len(no_load_key))
+
+        return model
+
+
 def load_model(Model, model_path, num_classes, device):
 
     model = Model(num_classes).to(device)
-    model.load_state_dict(torch.load(model_path))
+    model = get_pretrain(model, model_path)
+    # model.load_state_dict(torch.load(model_path))
     model.eval()
 
     return model
