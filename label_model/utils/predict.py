@@ -32,8 +32,8 @@ def predict_cotours(config_path):
         shapes = read_geojson(para.Path.gt_json_path)
         roi_contours = get_roi_conts(shapes, para.Model.roi_label[0])[0]
         x, y, w, h = cv.boundingRect(roi_contours)
-        x -= 11000
-        y -= 2500
+        x -= 13000
+        y -= 4000
         w += 20000
         h += 20000
         patch_imgs = myCropMerge.crop_Image(image[y:y+h, x:x+w, :], para.Parameter.overlap_size)
@@ -57,7 +57,7 @@ def predict_cotours(config_path):
 
         else:
 
-            roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, thresh=0.6, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
+            roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, thresh=0.7, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
             [masks_pre_list[i].append(roi_masks[i]) for i in range(len(para.Model.labels))]
             
     print(f'start merge')
@@ -65,7 +65,7 @@ def predict_cotours(config_path):
     downscale = 2.0 if para.Parameter.downscale else 1
     masks_pre = [cv.resize(mask_pre,(mask_pre.shape[1]//downscale, mask_pre.shape[0]//downscale)) for mask_pre in masks_pre]
 
-    masks_pre = [get_contours(mask_pre, para.Post.use_dilate, para.Post.use_watershed) for mask_pre in masks_pre]
+    # masks_pre = [get_contours(mask_pre, para.Post.use_dilate, para.Post.use_watershed) for mask_pre in masks_pre]
     masks_pre = [[cv.findContours(masks_pre[i], cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)[-2]] for i in range(len(para.Model.labels))]
 
     Contours = generate_list(para.Model.labels)

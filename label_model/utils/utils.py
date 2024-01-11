@@ -78,45 +78,41 @@ def get_Targets(image, model, device, totensor, overlap_size, thresh=0.6, use_di
         if len(preds.shape) == 2:
 
             input_size = preds.shape[0] - (2*overlap_size)
-            preds = preds[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]
             preds = np.array(np.where(preds>thresh, 255., 0.), dtype=np.uint8)
-            Contours = [get_contours(preds, use_dilate, use_watershed)]
+            Contours = [get_contours(preds, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
 
         elif target==2:
 
             for i, pred in enumerate(preds):
 
                 input_size = pred.shape[0] - (2*overlap_size)
-                pred = pred[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]
                 pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
 
                 if not i:
-                    Contours = [get_contours(pred, use_dilate, use_watershed)]
-                
+                    Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
+
                 else:
-                    Contours.append(get_contours(pred, use_dilate, use_watershed))
+                    Contours.append(get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size])
         
         elif target==1:
 
             for i, pred in enumerate(preds):
 
                 input_size = pred.shape[0] - (2*overlap_size)
-                pred = pred[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]
                 pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
 
                 if i:
-                    Contours = [get_contours(pred, use_dilate, use_watershed)]
+                    Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
 
         else:
 
             for i, pred in enumerate(preds):
 
                 input_size = pred.shape[0] - (2*overlap_size)
-                pred = pred[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]
                 pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
 
                 if not i:
-                    Contours = [get_contours(pred, use_dilate, use_watershed)]
+                    Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
 
     return Contours
 

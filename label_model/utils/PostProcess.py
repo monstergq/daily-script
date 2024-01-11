@@ -5,7 +5,7 @@ import numpy as np
 def morphology(binary, surface):
 
     kernel = np.ones((3, 3), np.uint8)
-    binary = cv.morphologyEx(binary, cv.MORPH_DILATE, kernel, iterations=2)
+    binary = cv.morphologyEx(binary, cv.MORPH_DILATE, kernel, iterations=1)
     unknown = binary - surface
 
     return unknown
