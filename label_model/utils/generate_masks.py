@@ -62,17 +62,28 @@ class generate_masks:
 
             if self.draw:
 
-                for j, label_name in enumerate(masks.keys()):
-                    
-                    Contours = cv.findContours(masks[label_name], cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
-                    cv.drawContours(img, Contours, -1, colors[j], 2)
-                    cv.imwrite(os.path.join(self.img_save_path, f'{self.base_name}.png'), img)
+                if not i:
 
-            elif not i:
+                    for j, label_name in enumerate(masks.keys()):
+                        
+                        Contours = cv.findContours(masks[label_name], cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
+                        cv.drawContours(img, Contours, -1, colors[j], 2)
+                        cv.imwrite(os.path.join(self.img_save_path, f'{self.base_name}.png'), img)
+
+                else:
+
+                    for j, label_name in enumerate(masks.keys()):
+                        
+                        Contours = cv.findContours(masks[label_name], cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
+                        cv.drawContours(img, Contours, -1, colors[j], 2)
+                        cv.imwrite(os.path.join(self.img_save_path, f'{self.base_name}_{i}.png'), img)
+
+            if not i:
                 
                 cv.imwrite(os.path.join(self.img_save_path, f'{self.base_name}.png'), img)
 
                 for label_name in masks.keys():
+                    cv.imwrite(os.path.join(self.mask_save_path, 'A', f'{self.base_name}.png'), masks[label_name])
                     cv.imwrite(os.path.join(self.mask_save_path, label_name, f'{self.base_name}.png'), masks[label_name])
             
             else:
@@ -80,6 +91,7 @@ class generate_masks:
                 cv.imwrite(os.path.join(self.img_save_path, f'{self.base_name}_{i}.png'), img)
 
                 for label_name in masks.keys():
+                    cv.imwrite(os.path.join(self.mask_save_path, 'A', f'{self.base_name}_{i}.png'), masks[label_name])
                     cv.imwrite(os.path.join(self.mask_save_path, label_name, f'{self.base_name}_{i}.png'), masks[label_name])
 
         print(f'{self.base_name} >>>>>>>>>> pass')
@@ -109,6 +121,7 @@ def split_IMG(labels, img_path, mask_path, save_path, crop_size, down_sample, ov
     check_path(os.path.join(save_path, 'img'))
 
     for label_name in labels.keys():
+        check_path(os.path.join(save_path, 'mask', 'A'))
         check_path(os.path.join(save_path, 'mask', label_name))
 
     scale = 0.5 if down_sample else 1
@@ -126,10 +139,12 @@ def split_IMG(labels, img_path, mask_path, save_path, crop_size, down_sample, ov
         for label_name in mask_path_list.keys():
 
             if not i:
-                mask_path_list[label_name] = [os.path.join(mask_path, label_name, name)]
+                mask_path_list[label_name] = [os.path.join(mask_path, 'A', name)]
+                # mask_path_list[label_name] = [os.path.join(mask_path, label_name, name)]
 
             else:
-                mask_path_list[label_name].append(os.path.join(mask_path, label_name, name))
+                mask_path_list[label_name].append(os.path.join(mask_path, 'A', name))
+                # mask_path_list[label_name].append(os.path.join(mask_path, label_name, name))
 
     for i in tqdm(range(len(img_list))):
 
@@ -163,7 +178,8 @@ def split_IMG(labels, img_path, mask_path, save_path, crop_size, down_sample, ov
 
             for label_name in masks_list.keys():
                     
-                save_mask_path = os.path.join(save_path, 'mask', label_name, f'{base_name}_{n}.png')
+                save_mask_path = os.path.join(save_path, 'mask', 'A', f'{base_name}_{n}.png')
+                # save_mask_path = os.path.join(save_path, 'mask', label_name, f'{base_name}_{n}.png')
                 cv.imwrite(save_mask_path, masks_list[label_name][y:y + crop_size, x:x + crop_size])
 
     split_dataset(save_path, labels)
