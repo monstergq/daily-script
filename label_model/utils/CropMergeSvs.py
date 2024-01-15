@@ -72,15 +72,6 @@ class classCropMerge:
             
             for j, total_mask in enumerate(total_masks):
 
-                try:
-                    total_mask[coord[0]:coord[0]+self.crop_size_height, coord[1]:coord[1]+self.crop_size_width] += imagelist[j][i]
-                except:
-                    print(f'coord[0] is: {coord[0]}')
-                    print(f'self.crop_size_height is: {self.crop_size_height}')
-                    print(f'coord[1] is: {coord[1]}')
-                    print(f'self.crop_size_width is: {self.crop_size_width}')
-                    print(f'self.crop_size_width is: {self.crop_size_width}')
-                    print(f'imagelist[j][i] shape is: {imagelist[j][i].shape}')
-
+                total_mask[coord[0]:coord[0]+self.crop_size_height, coord[1]:coord[1]+self.crop_size_width] += imagelist[j][i]
 
         return total_masks

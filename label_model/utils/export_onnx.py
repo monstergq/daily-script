@@ -1,5 +1,4 @@
-import torch, argparse, warnings
-from model.net.U2Net import U2net as Model
+import torch, warnings
 
 
 try:
@@ -107,71 +106,3 @@ def run_export(
 
 def to_numpy(tensor):
     return tensor.cpu().numpy()
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description='pytorch2onnx')
-
-
-    # 添加 --checkpoint 参数，指定模型检查点的路径
-    parser.add_argument(
-                            "--checkpoint", 
-                            type=str, 
-                            default='./model_path/labelme_ssx_cell_U2Net_checkpoint_200_20231204.pth', 
-                            help="The path to the SAM model checkpoint."
-                        )
-
-    # 添加 --output 参数，指定 ONNX 模型的保存文件名
-    parser.add_argument(
-                            "--output", 
-                            type=str, 
-                            default='./onnx/model_TG.onnx', 
-                            help="The filename to save the ONNX model to."
-                        )
-
-    # 添加 --opset 参数，指定 ONNX opset 版本
-    parser.add_argument(
-                            "--opset",
-                            type=int,
-                            default=11,
-                            help="The ONNX opset version to use. Must be >=11",
-                        )
-    
-    # 添加 --quantize-out 参数，指定量化模型的保存文件名
-    parser.add_argument(
-                            "--quantize-out",
-                            type=str,
-                            default=None,
-                            help=(
-                                    "If set, will quantize the model and save it with this name. "
-                                    "Quantization is performed with quantize_dynamic from onnxruntime.quantization.quantize."
-                                ),
-                        )
-
-    # 解析命令行参数
-    args = parser.parse_args()
-
-    model = Model(1)
-
-    run_export(model=model, opset=args.opset, output=args.output, checkpoint=args.checkpoint)
-
-    # 如果指定了量化输出文件名，执行模型量化
-    if args.quantize_out is not None:
-
-        # 确保 onnxruntime 已安装，它是进行模型量化的必要条件
-        assert onnxruntime_exists, "onnxruntime is required to quantize the model."
-        from onnxruntime.quantization import QuantType  # 导入量化类型
-        from onnxruntime.quantization.quantize import quantize_dynamic  # 导入动态量化函数
-
-        # 执行量化并保存量化后的模型
-        print(f"Quantizing model and writing to {args.quantize_out}...")
-        quantize_dynamic(
-                            model_input=args.output,
-                            model_output=args.quantize_out,
-                            optimize_model=True,
-                            per_channel=False,
-                            reduce_range=False,
-                            weight_type=QuantType.QUInt8,
-                        )
-        print("Done!")
