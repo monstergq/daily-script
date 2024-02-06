@@ -25,7 +25,7 @@ class classCropMerge:
         self.height = None
         self.points = None
 
-    def crop_Image(self, image, overlap_size):
+    def crop_Image(self, image, overlap_size, batch_size):
 
         """
         Crop Image.
@@ -41,6 +41,7 @@ class classCropMerge:
 
         print(f'self.height is: {self.height}, self.width is: {self.width}')
 
+        counter = 0
         patch_imgs = []
 
         for i in range(0, self.height, self.crop_stride):
@@ -53,8 +54,22 @@ class classCropMerge:
                 if j+self.crop_size_width+(2*overlap_size) > self.width:
                     j = self.width - self.crop_size_width - (2*overlap_size)
 
-                self.points.append([i, j])
-                patch_imgs.append(image[i:i+self.crop_size_height+(2*overlap_size), j:j+self.crop_size_width+(2*overlap_size)])
+                if counter == batch_size-1:
+                    counter = 0
+                    batch_coord.append([i, j])
+                    batch_imgs.append(image[i:i+self.crop_size_height+(2*overlap_size), j:j+self.crop_size_width+(2*overlap_size)])
+                    self.points.append(batch_coord)
+                    patch_imgs.append(batch_imgs)
+                
+                elif counter == 0:
+                    counter += 1
+                    batch_coord = [[i, j]]
+                    batch_imgs = [image[i:i+self.crop_size_height+(2*overlap_size), j:j+self.crop_size_width+(2*overlap_size)]]
+                
+                else:
+                    counter += 1
+                    batch_coord.append([i, j])
+                    batch_imgs.append(image[i:i+self.crop_size_height+(2*overlap_size), j:j+self.crop_size_width+(2*overlap_size)])
 
         return patch_imgs
 
@@ -68,10 +83,12 @@ class classCropMerge:
 
         total_masks = [np.zeros((self.image.shape[0]-(2*self.overlap_size), self.image.shape[1]-(2*self.overlap_size)), dtype=np.uint8)] * len(imagelist)
 
-        for i, coord in enumerate(self.points):
+        for i, batch_coords in enumerate(self.points):
             
-            for j, total_mask in enumerate(total_masks):
+            for j, coord in enumerate(batch_coords):
 
-                total_mask[coord[0]:coord[0]+self.crop_size_height, coord[1]:coord[1]+self.crop_size_width] += imagelist[j][i]
+                for n, total_mask in enumerate(total_masks):
+
+                    total_mask[coord[0]:coord[0]+self.crop_size_height, coord[1]:coord[1]+self.crop_size_width] += imagelist[n][i][j]
 
         return total_masks

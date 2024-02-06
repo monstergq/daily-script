@@ -32,15 +32,15 @@ def predict_cotours(config_path):
         shapes = read_geojson(para.Path.gt_json_path)
         roi_contours = get_roi_conts(shapes, para.Model.roi_label[0])[0]
         x, y, w, h = cv.boundingRect(roi_contours)
-        x -= 13000
-        y -= 4000
-        w += 20000
-        h += 20000
-        patch_imgs = myCropMerge.crop_Image(image[y:y+h, x:x+w, :], para.Parameter.overlap_size)
+        # x -= 13000
+        # y -= 4000
+        # w += 20000
+        # h += 20000
+        patch_imgs = myCropMerge.crop_Image(image[y:y+h, x:x+w, :], para.Parameter.overlap_size, para.Parameter.batch_size)
 
     else:
 
-        patch_imgs = myCropMerge.crop_Image(image, para.Parameter.overlap_size)
+        patch_imgs = myCropMerge.crop_Image(image, para.Parameter.overlap_size, para.Parameter.batch_size)
 
     del image
     
@@ -52,12 +52,12 @@ def predict_cotours(config_path):
 
         if ((mean_img > 250) or (mean_img == 0)):
 
-            roi_mask = np.zeros((img.shape[0]-(2*para.Parameter.overlap_size), img.shape[1]-(2*para.Parameter.overlap_size)), dtype=np.uint8)
+            roi_mask = np.zeros((para.Parameter.batch_size, img[0].shape[0]-(2*para.Parameter.overlap_size), img[0].shape[1]-(2*para.Parameter.overlap_size)), dtype=np.uint8)
             [masks_pre_list[i].append(roi_mask) for i in range(len(para.Model.labels))]
 
         else:
 
-            roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, thresh=0.7, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
+            roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, para.Parameter.batch_size, para.Model.num_classes, thresh=0.5, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
             [masks_pre_list[i].append(roi_masks[i]) for i in range(len(para.Model.labels))]
             
     print(f'start merge')
