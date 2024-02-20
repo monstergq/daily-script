@@ -1,5 +1,7 @@
 import os, sys
 import numpy as np
+from utils.utils import *
+from openslide import OpenSlide
 
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +27,39 @@ class classCropMerge:
         self.height = None
         self.points = None
 
-    def crop_Image(self, image, overlap_size, batch_size):
+    def get_image(self, para, i, j, level):
+
+        i = i - self.overlap_size
+        j = j - self.overlap_size
+
+        w_min_border = 0-i if i < 0 else 0
+        h_min_border = 0-j if j < 0 else 0
+
+        w_max_border = (j+self.crop_size_width+self.overlap_size)-self.x-self.width if (j+self.crop_size_width+self.overlap_size) > self.x+self.width else 0
+        h_max_border = (i+self.crop_size_height+self.overlap_size)-self.y-self.height if (i+self.crop_size_height+self.overlap_size) > self.y+self.height else 0
+
+        if i < 0 and j < 0:
+            image = np.array(self.svs.read_region((0, 0), level, (self.crop_size_height+self.overlap_size, self.crop_size_width+self.overlap_size)))[:, :, :3]
+            image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
+        
+        elif i < 0 and j >= 0:
+            image = np.array(self.svs.read_region((j, 0), level, (self.crop_size_height+2*self.overlap_size, self.crop_size_width+self.overlap_size)))[:, :, :3]
+            image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
+        
+        elif i >= 0 and j < 0:
+            image = np.array(self.svs.read_region((0, i), level, (self.crop_size_height+self.overlap_size, self.crop_size_width+2*self.overlap_size)))[:, :, :3]
+            image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
+        
+        else:
+            image = np.array(self.svs.read_region((j, i), level, (self.crop_size_height+2*self.overlap_size, self.crop_size_width+2*self.overlap_size)))[:, :, :3]
+
+        if para.Parameter.trans_channel:
+            return image[:, :, ::-1]
+
+        else:
+            return image
+
+    def crop_Image(self, para):
 
         """
         Crop Image.
@@ -34,46 +68,69 @@ class classCropMerge:
         """
 
         self.points = []
-        self.image = image
-        self.overlap_size = overlap_size
+        self.x, self.y = 0, 0
+        
+        self.svs = OpenSlide(para.Path.root_path)
+        self.overlap_size = para.Parameter.overlap_size
 
-        self.height, self.width = image.shape[:2]
+        if para.Model.roi_label[-1]:
+
+            shapes = read_geojson(para.Path.gt_json_path)
+            roi_contours = get_roi_conts(shapes, para.Model.roi_label[0])[0]
+            self.x, self.y, w, h = cv.boundingRect(roi_contours)
+            self.height, self.width = h, w
+
+        else:
+
+            self.width, self.height = self.svs.level_dimensions[para.Parameter.level]
 
         print(f'self.height is: {self.height}, self.width is: {self.width}')
 
         counter = 0
         patch_imgs = []
 
-        for i in range(0, self.height, self.crop_stride):
+        for i in range(self.y, self.y+self.height, self.crop_stride):
 
-            if i+self.crop_size_height+(2*overlap_size) > self.height:
-                i = self.height - self.crop_size_height - (2*overlap_size)
+            if i+self.crop_size_height > self.y+self.height:
+                i = self.y + self.height - self.crop_size_height
 
-            for j in range(0, self.width, self.crop_stride):
+            for j in range(self.x, self.x+self.width, self.crop_stride):
 
-                if j+self.crop_size_width+(2*overlap_size) > self.width:
-                    j = self.width - self.crop_size_width - (2*overlap_size)
+                if j+self.crop_size_width > self.x+self.width:
+                    j = self.x + self.width - self.crop_size_width
 
-                if counter == batch_size-1:
-                    counter = 0
-                    batch_coord.append([i, j])
-                    batch_imgs.append(image[i:i+self.crop_size_height+(2*overlap_size), j:j+self.crop_size_width+(2*overlap_size)])
-                    self.points.append(batch_coord)
-                    patch_imgs.append(batch_imgs)
-                
-                elif counter == 0:
-                    counter += 1
-                    batch_coord = [[i, j]]
-                    batch_imgs = [image[i:i+self.crop_size_height+(2*overlap_size), j:j+self.crop_size_width+(2*overlap_size)]]
-                
+                image = self.get_image(para, i, j, para.Parameter.level)
+
+                if para.Parameter.batch_size == 1:
+                        
+                    self.points.append([[i, j]])
+                    patch_imgs.append([image])
+
                 else:
-                    counter += 1
-                    batch_coord.append([i, j])
-                    batch_imgs.append(image[i:i+self.crop_size_height+(2*overlap_size), j:j+self.crop_size_width+(2*overlap_size)])
+
+                    if counter == 0:
+
+                        counter += 1
+                        batch_coord = [[i, j]]
+                        batch_imgs = [image]
+                    
+                    elif counter == para.Parameter.batch_size-1:
+
+                        counter = 0
+                        batch_coord.append([i, j])
+                        self.points.append(batch_coord)
+                        batch_imgs.append(image)
+                        patch_imgs.append(batch_imgs)
+                    
+                    else:
+
+                        counter += 1
+                        batch_coord.append([i, j])
+                        batch_imgs.append(image)
 
         return patch_imgs
 
-    def merge_Image(self, imagelist):
+    def merge_Image(self, para, imagelist):
 
         """
         Merageg Image.
@@ -81,7 +138,8 @@ class classCropMerge:
         :return: Total Mask.
         """
 
-        total_masks = [np.zeros((self.image.shape[0]-(2*self.overlap_size), self.image.shape[1]-(2*self.overlap_size)), dtype=np.uint8)] * len(imagelist)
+        width, height = self.svs.level_dimensions[para.Parameter.level]
+        total_masks = [np.zeros((height, width), dtype=np.uint8)] * len(imagelist)
 
         for i, batch_coords in enumerate(self.points):
             

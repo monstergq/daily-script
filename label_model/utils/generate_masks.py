@@ -83,16 +83,16 @@ class generate_masks:
                 cv.imwrite(os.path.join(self.img_save_path, f'{self.base_name}.png'), img)
 
                 for label_name in masks.keys():
-                    # cv.imwrite(os.path.join(self.mask_save_path, 'A', f'{self.base_name}.png'), masks[label_name])
-                    cv.imwrite(os.path.join(self.mask_save_path, label_name, f'{self.base_name}.png'), masks[label_name])
+                    cv.imwrite(os.path.join(self.mask_save_path, 'A', f'{self.base_name}.png'), masks[label_name])
+                    # cv.imwrite(os.path.join(self.mask_save_path, label_name, f'{self.base_name}.png'), masks[label_name])
             
             else:
 
                 cv.imwrite(os.path.join(self.img_save_path, f'{self.base_name}_{i}.png'), img)
 
                 for label_name in masks.keys():
-                    # cv.imwrite(os.path.join(self.mask_save_path, 'A', f'{self.base_name}_{i}.png'), masks[label_name])
-                    cv.imwrite(os.path.join(self.mask_save_path, label_name, f'{self.base_name}_{i}.png'), masks[label_name])
+                    cv.imwrite(os.path.join(self.mask_save_path, 'A', f'{self.base_name}_{i}.png'), masks[label_name])
+                    # cv.imwrite(os.path.join(self.mask_save_path, label_name, f'{self.base_name}_{i}.png'), masks[label_name])
 
         print(f'{self.base_name} >>>>>>>>>> pass')
 
@@ -113,7 +113,8 @@ def split_dataset(train_path, labels, percent=0.1):
         shutil.move(os.path.join(train_path, 'img', val_img), os.path.join(val_path, 'img'))
 
         for label_name in labels.keys():
-            shutil.move(os.path.join(train_path, 'mask', label_name, val_img), os.path.join(val_path, 'mask', label_name))
+            shutil.move(os.path.join(train_path, 'mask', 'A', val_img), os.path.join(val_path, 'mask', label_name))
+            # shutil.move(os.path.join(train_path, 'mask', label_name, val_img), os.path.join(val_path, 'mask', label_name))
 
 
 def split_IMG(labels, img_path, mask_path, save_path, crop_size, down_sample, overlap):
@@ -121,8 +122,8 @@ def split_IMG(labels, img_path, mask_path, save_path, crop_size, down_sample, ov
     check_path(os.path.join(save_path, 'img'))
 
     for label_name in labels.keys():
-        # check_path(os.path.join(save_path, 'mask', 'A'))
-        check_path(os.path.join(save_path, 'mask', label_name))
+        check_path(os.path.join(save_path, 'mask', 'A'))
+        # check_path(os.path.join(save_path, 'mask', label_name))
 
     scale = 0.5 if down_sample else 1
 
@@ -139,12 +140,12 @@ def split_IMG(labels, img_path, mask_path, save_path, crop_size, down_sample, ov
         for label_name in mask_path_list.keys():
 
             if not i:
-                # mask_path_list[label_name] = [os.path.join(mask_path, 'A', name)]
-                mask_path_list[label_name] = [os.path.join(mask_path, label_name, name)]
+                mask_path_list[label_name] = [os.path.join(mask_path, 'A', name)]
+                # mask_path_list[label_name] = [os.path.join(mask_path, label_name, name)]
 
             else:
-                # mask_path_list[label_name].append(os.path.join(mask_path, 'A', name))
-                mask_path_list[label_name].append(os.path.join(mask_path, label_name, name))
+                mask_path_list[label_name].append(os.path.join(mask_path, 'A', name))
+                # mask_path_list[label_name].append(os.path.join(mask_path, label_name, name))
 
     for i in tqdm(range(len(img_list))):
 
@@ -156,6 +157,24 @@ def split_IMG(labels, img_path, mask_path, save_path, crop_size, down_sample, ov
 
         crop_coords = []
         h, w = image.shape[:2]
+
+        if h < crop_size:
+
+            image = cv.copyMakeBorder(image, 0, crop_size-h, 0, 0, cv.BORDER_REFLECT)
+
+            for label_name in masks_list.keys():
+                masks_list[label_name] = cv.copyMakeBorder(masks_list[label_name], 0, crop_size-h, 0, 0, cv.BORDER_REFLECT)
+
+            h = crop_size
+
+        if w < crop_size:
+
+            image = cv.copyMakeBorder(image, 0, 0, 0, crop_size-w, cv.BORDER_REFLECT)
+
+            for label_name in masks_list.keys():
+                masks_list[label_name] = cv.copyMakeBorder(masks_list[label_name], 0, 0, 0, crop_size-w, cv.BORDER_REFLECT)
+
+            w = crop_size
 
         for y in range(0, h, crop_size-overlap):
 
@@ -178,25 +197,28 @@ def split_IMG(labels, img_path, mask_path, save_path, crop_size, down_sample, ov
 
             for label_name in masks_list.keys():
                     
-                # save_mask_path = os.path.join(save_path, 'mask', 'A', f'{base_name}_{n}.png')
-                save_mask_path = os.path.join(save_path, 'mask', label_name, f'{base_name}_{n}.png')
+                save_mask_path = os.path.join(save_path, 'mask', 'A', f'{base_name}_{n}.png')
+                # save_mask_path = os.path.join(save_path, 'mask', label_name, f'{base_name}_{n}.png')
                 cv.imwrite(save_mask_path, masks_list[label_name][y:y + crop_size, x:x + crop_size])
+
+                if masks_list[label_name][y:y + crop_size, x:x + crop_size].shape[0] < crop_size or masks_list[label_name][y:y + crop_size, x:x + crop_size].shape[1] < crop_size:
+                    print(f'exits small img ')
 
     split_dataset(save_path, labels)
 
 
 def generate_datasets(json_paths, svs_paths, save_path, labels, roiLabels, draw, level, crop_size, down_sample, overlap, flag):
 
-    json_path_list = os.listdir(json_paths)
-    colors = generate_color(len(labels.keys()))
+    # json_path_list = os.listdir(json_paths)
+    # colors = generate_color(len(labels.keys()))
 
-    for path in json_path_list:
+    # for path in json_path_list:
 
-        json_path = os.path.join(json_paths, path)
-        svs_path = os.path.join(svs_paths, path.replace('json', 'svs'))
+    #     json_path = os.path.join(json_paths, path)
+    #     svs_path = os.path.join(svs_paths, path.replace('json', 'svs'))
 
-        gm = generate_masks(svs_path, json_path, save_path, labels, draw, down_sample, level)
-        gm.get_roi_mask(roiLabels, colors)
+    #     gm = generate_masks(svs_path, json_path, save_path, labels, draw, down_sample, level)
+    #     gm.get_roi_mask(roiLabels, colors)
 
     if not draw:
 

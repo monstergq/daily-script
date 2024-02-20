@@ -80,9 +80,6 @@ def get_Targets(images, model, device, totensor, overlap_size, batch_size, num_c
 
         for i, image in enumerate(images):
 
-            # cv.imshow('image', image)
-            # cv.waitKey(0)
-
             if not i:
                 img = totensor(image.copy()).unsqueeze(0).to(device)
             
@@ -118,10 +115,6 @@ def get_Targets(images, model, device, totensor, overlap_size, batch_size, num_c
         
         elif target==1:
 
-            # for i in range(4):
-            #     res = preds[i, 0, :, :]
-            #     cv.imshow('res', res)
-            #     cv.waitKey(0)
             pred = preds[:, 0, :, :]
             input_size = pred.shape[1] - (2*overlap_size)
             pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)

@@ -20,30 +20,11 @@ def predict_cotours(config_path):
 
     totensor = transforms.ToTensor()
 
-    # for e in os.scandir(para.Path.root_path):
     _, name = os.path.split(para.Path.root_path)
-    print(f'read svs:{para.Path.root_path}')
-    image = read_svs(para.Path.root_path, 0, para.Parameter.trans_channel, para.Parameter.overlap_size)
+    print(f'svs is :{para.Path.root_path}')
 
     print(f'start crop')
-
-    if para.Model.roi_label[-1]:
-
-        shapes = read_geojson(para.Path.gt_json_path)
-        roi_contours = get_roi_conts(shapes, para.Model.roi_label[0])[0]
-        x, y, w, h = cv.boundingRect(roi_contours)
-        # x -= 13000
-        # y -= 4000
-        # w += 20000
-        # h += 20000
-        patch_imgs = myCropMerge.crop_Image(image[y:y+h, x:x+w, :], para.Parameter.overlap_size, para.Parameter.batch_size)
-
-    else:
-
-        patch_imgs = myCropMerge.crop_Image(image, para.Parameter.overlap_size, para.Parameter.batch_size)
-
-    del image
-    
+    patch_imgs = myCropMerge.crop_Image(para)
     masks_pre_list = generate_list(para.Model.labels)
 
     for img in patch_imgs:
@@ -61,7 +42,7 @@ def predict_cotours(config_path):
             [masks_pre_list[i].append(roi_masks[i]) for i in range(len(para.Model.labels))]
             
     print(f'start merge')
-    masks_pre = myCropMerge.merge_Image(masks_pre_list)
+    masks_pre = myCropMerge.merge_Image(para, masks_pre_list)
     downscale = 2.0 if para.Parameter.downscale else 1
     masks_pre = [cv.resize(mask_pre,(mask_pre.shape[1]//downscale, mask_pre.shape[0]//downscale)) for mask_pre in masks_pre]
 
@@ -77,11 +58,7 @@ def predict_cotours(config_path):
             if len(mask) >= para.Post.polygon_filter+1:
 
                 mask *= downscale
-
-                if para.Model.roi_label[-1]:
-                    Contours[i].append(mask+[x, y])
-                else:
-                    Contours[i].append(mask)
+                Contours[i].append(mask)
 
         Contours[i] = rect_filter(Contours[i], thresh=para.Post.rect_thresh)
         Contours[i] = line_filter(Contours[i], thresh=para.Post.line_thresh)
