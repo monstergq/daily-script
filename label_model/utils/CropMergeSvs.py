@@ -40,24 +40,28 @@ class classCropMerge:
 
         if i < 0 and j < 0:
             image = np.array(self.svs.read_region((0, 0), level, (self.crop_size_height+self.overlap_size, self.crop_size_width+self.overlap_size)))[:, :, :3]
+            flag = False if ((np.mean(image) < 245) and (np.mean(image) != 0)) else True
             image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
         
         elif i < 0 and j >= 0:
             image = np.array(self.svs.read_region((j, 0), level, (self.crop_size_height+2*self.overlap_size, self.crop_size_width+self.overlap_size)))[:, :, :3]
+            flag = False if ((np.mean(image) < 245) and (np.mean(image) != 0)) else True
             image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
         
         elif i >= 0 and j < 0:
             image = np.array(self.svs.read_region((0, i), level, (self.crop_size_height+self.overlap_size, self.crop_size_width+2*self.overlap_size)))[:, :, :3]
+            flag = False if ((np.mean(image) < 245) and (np.mean(image) != 0)) else True
             image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
         
         else:
             image = np.array(self.svs.read_region((j, i), level, (self.crop_size_height+2*self.overlap_size, self.crop_size_width+2*self.overlap_size)))[:, :, :3]
+            flag = False if ((np.mean(image) < 245) and (np.mean(image) != 0)) else True
 
         if para.Parameter.trans_channel:
             return image[:, :, ::-1]
 
         else:
-            return image
+            return image, flag
 
     def crop_Image(self, para):
 
@@ -99,34 +103,36 @@ class classCropMerge:
                 if j+self.crop_size_width > self.x+self.width:
                     j = self.x + self.width - self.crop_size_width
 
-                image = self.get_image(para, i, j, para.Parameter.level)
+                image, flag = self.get_image(para, i, j, para.Parameter.level)
 
-                if para.Parameter.batch_size == 1:
-                        
-                    self.points.append([[i, j]])
-                    patch_imgs.append([image])
+                if not flag:
 
-                else:
+                    if para.Parameter.batch_size == 1:
+                            
+                        self.points.append([[i, j]])
+                        patch_imgs.append([image])
 
-                    if counter == 0:
-
-                        counter += 1
-                        batch_coord = [[i, j]]
-                        batch_imgs = [image]
-                    
-                    elif counter == para.Parameter.batch_size-1:
-
-                        counter = 0
-                        batch_coord.append([i, j])
-                        self.points.append(batch_coord)
-                        batch_imgs.append(image)
-                        patch_imgs.append(batch_imgs)
-                    
                     else:
 
-                        counter += 1
-                        batch_coord.append([i, j])
-                        batch_imgs.append(image)
+                        if counter == 0:
+
+                            counter += 1
+                            batch_coord = [[i, j]]
+                            batch_imgs = [image]
+                        
+                        elif counter == para.Parameter.batch_size-1:
+
+                            counter = 0
+                            batch_coord.append([i, j])
+                            self.points.append(batch_coord)
+                            batch_imgs.append(image)
+                            patch_imgs.append(batch_imgs)
+                        
+                        else:
+
+                            counter += 1
+                            batch_coord.append([i, j])
+                            batch_imgs.append(image)
 
         return patch_imgs
 

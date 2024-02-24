@@ -44,6 +44,11 @@ def get_contours(preds, use_dilate, use_watershed):
 
     for i, pred in enumerate(preds):
 
+        # cv.imshow('pred', pred)
+        # k = cv.waitKey(0)
+        # if k == 27:
+        #     cv.destroyAllWindows()
+
         if use_dilate:
             kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
             contours = cv.findContours(cv.dilate(pred, kernel), cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
@@ -72,13 +77,15 @@ def get_contours(preds, use_dilate, use_watershed):
     return IMG
 
 
-def get_Targets(images, model, device, totensor, overlap_size, batch_size, num_class, thresh=0.6, use_dilate=False, use_sigmoid=False, use_watershed=False, target=None):
+def get_Targets(images, model, device, totensor, overlap_size, batch_size, num_class, thresh=0.8, use_dilate=False, use_sigmoid=False, use_watershed=False, target=None):
 
     with torch.no_grad():
 
         assert len(images) == batch_size
 
         for i, image in enumerate(images):
+
+            # cv.imshow('image', image)
 
             if not i:
                 img = totensor(image.copy()).unsqueeze(0).to(device)
@@ -91,9 +98,10 @@ def get_Targets(images, model, device, totensor, overlap_size, batch_size, num_c
         else:
             preds = model(img)[0].cpu().detach().numpy()
 
-        if len(preds[1:].shape) == 2:
+        if len(preds[0].squeeze().shape) == 2:
 
-            input_size = preds.shape[1] - (2*overlap_size)
+            preds = preds[:, 0, :, :]
+            input_size = preds.shape[-1] - (2*overlap_size)
             preds = np.array(np.where(preds>thresh, 255., 0.), dtype=np.uint8)
             Contours = [[contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(preds, use_dilate, use_watershed)]]
 
@@ -213,7 +221,7 @@ def get_img_from_wsi(svs_path, level, roi_area):
 
     slide = openslide.OpenSlide(svs_path)
 
-    if roi_area.any():
+    if roi_area != []:
 
         min_x, min_y, max_x, max_y = find_rect_point(roi_area)
         img_roi = np.array(slide.read_region((min_x, min_y), level, (max_x-min_x, max_y-min_y)))[:, :, -2::-1]
@@ -225,7 +233,7 @@ def get_img_from_wsi(svs_path, level, roi_area):
         w, h = slide.level_dimensions[level]
         img_roi = np.array(slide.read_region((0, 0), level, (w, h)))[:, :, :3][:, :, ::-1]
 
-        return img_roi.copy()
+        return img_roi.copy(), 0, 0
     
 
 def read_svs(wsi_path, level, trans_channel, overlap_size):

@@ -29,17 +29,8 @@ def predict_cotours(config_path):
 
     for img in patch_imgs:
 
-        mean_img = np.mean(img)
-
-        if ((mean_img > 250) or (mean_img == 0)):
-
-            roi_mask = np.zeros((para.Parameter.batch_size, img[0].shape[0]-(2*para.Parameter.overlap_size), img[0].shape[1]-(2*para.Parameter.overlap_size)), dtype=np.uint8)
-            [masks_pre_list[i].append(roi_mask) for i in range(len(para.Model.labels))]
-
-        else:
-
-            roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, para.Parameter.batch_size, para.Model.num_classes, thresh=0.5, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
-            [masks_pre_list[i].append(roi_masks[i]) for i in range(len(para.Model.labels))]
+        roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, para.Parameter.batch_size, para.Model.num_classes, thresh=0.5, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
+        [masks_pre_list[i].append(roi_masks[i]) for i in range(len(para.Model.labels))]
             
     print(f'start merge')
     masks_pre = myCropMerge.merge_Image(para, masks_pre_list)
