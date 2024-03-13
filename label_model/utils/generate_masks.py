@@ -148,7 +148,6 @@ def split_IMG_(labels, svs_paths, json_paths, save_path, crop_size, down_sample,
     check_path(os.path.join(save_path, 'img'))
 
     for label_name in labels.keys():
-        # check_path(os.path.join(save_path, 'mask', 'A'))
         check_path(os.path.join(save_path, 'mask', label_name))
 
     for json_name in tqdm(os.listdir(json_paths)):
@@ -185,14 +184,14 @@ def split_IMG_(labels, svs_paths, json_paths, save_path, crop_size, down_sample,
 
                 mask = masks_list[label_name][y:y + crop_size, x:x + crop_size]
 
-                if np.mean(mask) > 0:
+                if np.mean(image) < 248:
+                # if np.mean(mask) > 0:
 
-                    # contours = cv.findContours(mask, cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
+                    contours = cv.findContours(mask, cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
                     # image = cv.drawContours(image.copy(), contours, -1, (0, 255, 0), 2)
                     
                     cv.imwrite(save_img_path, image)
 
-                    # save_mask_path = os.path.join(save_path, 'mask', 'A', f'{base_name}_{n}.png')
                     save_mask_path = os.path.join(save_path, 'mask', label_name, f'{base_name}_{n}.png')
                     cv.imwrite(save_mask_path, masks_list[label_name][y:y + crop_size, x:x + crop_size])
 
@@ -310,7 +309,7 @@ def generate_datasets(json_paths, svs_paths, save_path, labels, roiLabels, draw,
 
         temp_name = generate_dataset_name(down_sample, crop_size, flag, level)
 
-        root_path = json_paths.strip('\json')
+        root_path = json_paths.strip('json')
         masks_path = os.path.join(root_path, 'label_roi_mask', 'mask')
         img_path = os.path.join(root_path, 'label_roi_mask', 'img_roi')
         save_path = os.path.join(root_path, 'patch', f'{temp_name}', 'train')

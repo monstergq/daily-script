@@ -1,7 +1,6 @@
-import os, sys
 import numpy as np
+import os, sys, tifffile
 from utils.utils import *
-from openslide import OpenSlide
 
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +26,39 @@ class classCropMerge:
         self.height = None
         self.points = None
 
+    def get_contours(self, para):
+
+        img = tifffile.TiffFile(para.Path.root_path).pages[3].asarray()
+        h, w, _ = img.shape
+
+        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        dst = 255.0 - cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 25, 10)
+
+        kernel = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
+        dst = cv.dilate(dst.astype(np.uint8), kernel, iterations=1)
+
+        mask_coords = np.zeros((h, w), dtype=np.uint8)
+        contours, _ = cv.findContours(dst, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+        for contour in contours:
+
+            area = cv.contourArea(contour, False)
+
+            if area >= 1e3:
+                x, y, w, h = cv.boundingRect(contour)
+                mask_coords = cv.rectangle(mask_coords, (x, y), (x+w, y+h), 255, -1)
+
+        contours_coords = cv.findContours(mask_coords, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)[0]
+
+        coords = []
+
+        for contour in contours_coords:
+
+            x, y, w, h = cv.boundingRect(np.dot(contour, 4**2))
+            coords.append([x, y, w, h])
+
+        return coords
+
     def get_image(self, para, i, j, level):
 
         i = i - self.overlap_size
@@ -44,21 +76,21 @@ class classCropMerge:
             image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
         
         elif i < 0 and j >= 0:
-            image = np.array(self.svs.read_region((j, 0), level, (self.crop_size_height+2*self.overlap_size, self.crop_size_width+self.overlap_size)))[:, :, :3]
+            image = np.array(self.svs.read_region((j*4**level, 0), level, (self.crop_size_height+2*self.overlap_size, self.crop_size_width+self.overlap_size)))[:, :, :3]
             flag = False if ((np.mean(image) < 245) and (np.mean(image) != 0)) else True
             image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
         
         elif i >= 0 and j < 0:
-            image = np.array(self.svs.read_region((0, i), level, (self.crop_size_height+self.overlap_size, self.crop_size_width+2*self.overlap_size)))[:, :, :3]
+            image = np.array(self.svs.read_region((0, i*4**level), level, (self.crop_size_height+self.overlap_size, self.crop_size_width+2*self.overlap_size)))[:, :, :3]
             flag = False if ((np.mean(image) < 245) and (np.mean(image) != 0)) else True
             image = cv.copyMakeBorder(image, w_min_border, w_max_border, h_min_border, h_max_border, cv.BORDER_REFLECT)
         
         else:
-            image = np.array(self.svs.read_region((j, i), level, (self.crop_size_height+2*self.overlap_size, self.crop_size_width+2*self.overlap_size)))[:, :, :3]
+            image = np.array(self.svs.read_region((j*4**level, i*4**level), level, (self.crop_size_height+2*self.overlap_size, self.crop_size_width+2*self.overlap_size)))[:, :, :3]
             flag = False if ((np.mean(image) < 245) and (np.mean(image) != 0)) else True
 
         if para.Parameter.trans_channel:
-            return image[:, :, ::-1]
+            return image[:, :, ::-1], flag
 
         else:
             return image, flag
@@ -72,10 +104,6 @@ class classCropMerge:
         """
 
         self.points = []
-        self.x, self.y = 0, 0
-        
-        self.svs = OpenSlide(para.Path.root_path)
-        self.overlap_size = para.Parameter.overlap_size
 
         if para.Model.roi_label[-1]:
 
@@ -84,58 +112,40 @@ class classCropMerge:
             self.x, self.y, w, h = cv.boundingRect(roi_contours)
             self.height, self.width = h, w
 
+            for i in range(self.y, self.y+self.height, self.crop_stride):
+
+                if i+self.crop_size_height > self.y+self.height:
+                    i = self.y + self.height - self.crop_size_height
+
+                for j in range(self.x, self.x+self.width, self.crop_stride):
+
+                    if j+self.crop_size_width > self.x+self.width:
+                        j = self.x + self.width - self.crop_size_width
+                            
+                    self.points.append([i, j])
+
+            return self.points
+
         else:
 
-            self.width, self.height = self.svs.level_dimensions[para.Parameter.level]
+            roi_coord = self.get_contours(para)
 
-        print(f'self.height is: {self.height}, self.width is: {self.width}')
+            for (self.x, self.y, self.width, self.height) in roi_coord:
 
-        counter = 0
-        patch_imgs = []
+                for i in range(self.y, self.y+self.height, self.crop_stride):
 
-        for i in range(self.y, self.y+self.height, self.crop_stride):
+                    if i+self.crop_size_height > self.y+self.height:
+                        i = self.y + self.height - self.crop_size_height
 
-            if i+self.crop_size_height > self.y+self.height:
-                i = self.y + self.height - self.crop_size_height
+                    for j in range(self.x, self.x+self.width, self.crop_stride):
 
-            for j in range(self.x, self.x+self.width, self.crop_stride):
+                        if j+self.crop_size_width > self.x+self.width:
+                            j = self.x + self.width - self.crop_size_width
+                                
+                        self.points.append([i, j])
 
-                if j+self.crop_size_width > self.x+self.width:
-                    j = self.x + self.width - self.crop_size_width
-
-                image, flag = self.get_image(para, i, j, para.Parameter.level)
-
-                if not flag:
-
-                    if para.Parameter.batch_size == 1:
-                            
-                        self.points.append([[i, j]])
-                        patch_imgs.append([image])
-
-                    else:
-
-                        if counter == 0:
-
-                            counter += 1
-                            batch_coord = [[i, j]]
-                            batch_imgs = [image]
-                        
-                        elif counter == para.Parameter.batch_size-1:
-
-                            counter = 0
-                            batch_coord.append([i, j])
-                            self.points.append(batch_coord)
-                            batch_imgs.append(image)
-                            patch_imgs.append(batch_imgs)
-                        
-                        else:
-
-                            counter += 1
-                            batch_coord.append([i, j])
-                            batch_imgs.append(image)
-
-        return patch_imgs
-
+            return self.points
+        
     def merge_Image(self, para, imagelist):
 
         """
@@ -144,6 +154,7 @@ class classCropMerge:
         :return: Total Mask.
         """
 
+        w, h = self.svs.level_dimensions[0]
         width, height = self.svs.level_dimensions[para.Parameter.level]
         total_masks = [np.zeros((height, width), dtype=np.uint8)] * len(imagelist)
 
@@ -154,5 +165,12 @@ class classCropMerge:
                 for n, total_mask in enumerate(total_masks):
 
                     total_mask[coord[0]:coord[0]+self.crop_size_height, coord[1]:coord[1]+self.crop_size_width] += imagelist[n][i][j]
+        
+        if para.Parameter.level > 0:
+
+            for total_mask in total_masks:
+                total_mask = cv.resize(total_mask, (h, w))
+
+        cv.imwrite('mask.png', cv.resize(total_masks[0], dsize=None, fx=1/8, fy=1/8))
 
         return total_masks

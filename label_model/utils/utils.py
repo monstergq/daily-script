@@ -40,102 +40,83 @@ def read_yaml(fpath=None):
         return Dict(yml)
     
 
-def get_contours(preds, use_dilate, use_watershed):
+def get_contours(pred, use_dilate, use_watershed):
 
-    for i, pred in enumerate(preds):
+    # cv.imshow('pred', pred)
+    # k = cv.waitKey(0)
+    # if k == 27:
+    #     cv.destroyAllWindows()
 
-        # cv.imshow('pred', pred)
-        # k = cv.waitKey(0)
-        # if k == 27:
-        #     cv.destroyAllWindows()
+    if use_dilate:
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+        contours = cv.findContours(cv.dilate(pred, kernel), cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
 
-        if use_dilate:
-            kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
-            contours = cv.findContours(cv.dilate(pred, kernel), cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
+    else:
+        contours = cv.findContours(pred, cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
 
-        else:
-            contours = cv.findContours(pred, cv.RETR_LIST, cv.CHAIN_APPROX_NONE)[-2]
+    res = []
 
-        res = []
+    for contour in contours:
 
-        for contour in contours:
+        if cv.contourArea(contour) >= 10:
+            res.append(contour)
+    
+    img = cv.drawContours(np.zeros(pred.shape[:2], dtype=np.uint8), res, -1, 255, -1)
 
-            if cv.contourArea(contour) >= 10:
-                res.append(contour)
-        
-        img = cv.drawContours(np.zeros(pred.shape[:2], dtype=np.uint8), res, -1, 255, -1)
+    if use_watershed:
+        img = watershed_algorithm(img)
 
-        if use_watershed:
-            img = watershed_algorithm(img)
-
-        if not i:
-            IMG = [img]
-        
-        else:
-            IMG.append(img)
-
-    return IMG
+    return img
 
 
-def get_Targets(images, model, device, totensor, overlap_size, batch_size, num_class, thresh=0.8, use_dilate=False, use_sigmoid=False, use_watershed=False, target=None):
+def get_Targets(image, model, device, totensor, overlap_size, num_class, thresh=0.8, use_dilate=False, use_sigmoid=False, use_watershed=False, target=None):
 
     with torch.no_grad():
 
-        assert len(images) == batch_size
-
-        for i, image in enumerate(images):
-
-            # cv.imshow('image', image)
-
-            if not i:
-                img = totensor(image.copy()).unsqueeze(0).to(device)
-            
-            else:
-                img = torch.cat((img, totensor(image.copy()).unsqueeze(0).to(device)), dim=0)
+        img = totensor(image.copy()).unsqueeze(0).to(device)
 
         if use_sigmoid:
             preds = torch.sigmoid(model(img)[0]).cpu().detach().numpy()
         else:
-            preds = model(img)[0].cpu().detach().numpy()
+            preds = model(img)[0].cpu().detach().squeeze().numpy()
 
-        if len(preds[0].squeeze().shape) == 2:
+        if len(preds.shape) == 2:
 
-            preds = preds[:, 0, :, :]
             input_size = preds.shape[-1] - (2*overlap_size)
             preds = np.array(np.where(preds>thresh, 255., 0.), dtype=np.uint8)
-            Contours = [[contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(preds, use_dilate, use_watershed)]]
+            Contours = [get_contours(preds, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
 
         elif target==2:
 
             for i in range(num_class):
 
-                pred = preds[:, i, :, :]
+                pred = preds[i, :, :]
                 input_size = pred.shape[1] - (2*overlap_size)
                 pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
 
                 if not i:
-                    Contours = [[contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(pred, use_dilate, use_watershed)]]
-                    # Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
+                    # Contours = [[contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(pred, use_dilate, use_watershed)]]
+                    Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
 
                 else:
-                    Contours.append([contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(pred, use_dilate, use_watershed)])
-                    # Contours.append(get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size])
+                    # Contours.append([contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(pred, use_dilate, use_watershed)])
+                    Contours.append(get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size])
         
         elif target==1:
 
-            pred = preds[:, 0, :, :]
+            pred = preds[0, :, :]
             input_size = pred.shape[1] - (2*overlap_size)
             pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
-            Contours = [[contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(pred, use_dilate, use_watershed)]]
-            # Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
+            # Contours = [[contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(pred, use_dilate, use_watershed)]]
+            Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
 
         else:
 
-            pred = preds[:, 1, :, :]
+            pred = preds[1, :, :]
             input_size = pred.shape[1] - (2*overlap_size)
             pred = np.array(np.where(pred>thresh, 255., 0.), dtype=np.uint8)
-            Contours = [[contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(pred, use_dilate, use_watershed)]]
-            # Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
+            # Contours = [[contour[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size] for contour in get_contours(pred, use_dilate, use_watershed)]]
+            Contours = [get_contours(pred, use_dilate, use_watershed)[overlap_size:overlap_size+input_size, overlap_size:overlap_size+input_size]]
 
     return Contours
 
@@ -221,7 +202,7 @@ def get_img_from_wsi(svs_path, level, roi_area):
 
     slide = openslide.OpenSlide(svs_path)
 
-    if roi_area != []:
+    if not isinstance(roi_area, list):
 
         min_x, min_y, max_x, max_y = find_rect_point(roi_area)
         img_roi = np.array(slide.read_region((min_x, min_y), level, (max_x-min_x, max_y-min_y)))[:, :, -2::-1]

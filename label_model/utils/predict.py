@@ -1,13 +1,9 @@
-import os
 import cv2 as cv
-import numpy as np
+import os, tifffile
 from utils.utils import *
 from utils.NewJson import WriteJson
 from utils.eval_metric import eval_res
-# from model.net.sam import Model as Model
 from model.net.U2Net import U2net as Model
-# from model.net.model import U2net as Model
-# from model.net.UNext import UNext as Model
 import torchvision.transforms as transforms
 from utils.CropMergeSvs import classCropMerge
 
@@ -24,16 +20,26 @@ def predict_cotours(config_path):
     print(f'svs is :{para.Path.root_path}')
 
     print(f'start crop')
-    patch_imgs = myCropMerge.crop_Image(para)
-    masks_pre_list = generate_list(para.Model.labels)
+    patch_coord = myCropMerge.crop_Image(para)
+    masks_pre = generate_list(para.Model.labels)
 
-    for img in patch_imgs:
+    image = tifffile.TiffFile(para.Path.root_path).pages[0].asarray()
 
-        roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, para.Parameter.batch_size, para.Model.num_classes, thresh=0.5, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
-        [masks_pre_list[i].append(roi_masks[i]) for i in range(len(para.Model.labels))]
+    for i in range(len(para.Model.labels)):
+        masks_pre[i] = np.zeros(image.shape[:2], dtype=np.uint8) 
+
+    for [i, j] in patch_coord:
+
+        img = image[i-para.Parameter.overlap_size:i+para.Parameter.crop_size+para.Parameter.overlap_size, j-para.Parameter.overlap_size:j+para.Parameter.crop_size+para.Parameter.overlap_size]
+
+        if np.mean(img) < 250:
+
+            roi_masks = get_Targets(img, model, para.Model.device, totensor, para.Parameter.overlap_size, para.Model.num_classes, thresh=para.Parameter.thresh, use_dilate=para.Post.use_dilate, use_sigmoid=para.Post.use_sigmoid, use_watershed=para.Post.use_watershed, target=para.Model.target)
+            
+            for n in range(len(para.Model.labels)):
+                masks_pre[n][i:i+para.Parameter.crop_size, j:j+para.Parameter.crop_size] = roi_masks[n]
             
     print(f'start merge')
-    masks_pre = myCropMerge.merge_Image(para, masks_pre_list)
     downscale = 2.0 if para.Parameter.downscale else 1
     masks_pre = [cv.resize(mask_pre,(mask_pre.shape[1]//downscale, mask_pre.shape[0]//downscale)) for mask_pre in masks_pre]
 
